@@ -6,6 +6,7 @@ const port = 8080;
 const recipes = JSON.stringify(dataRecipes);
 
 const recipesListener = function (req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader("Content-Type", "application/json");
   if (req.url === "/recipes") {
     res.end(recipes);
