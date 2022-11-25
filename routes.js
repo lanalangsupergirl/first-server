@@ -46,6 +46,26 @@ const recipesListener = function (req, res) {
           fs.writeFileSync("recipes.json", JSON.stringify(json));
         });
       }
+
+      if (req.method === "PATCH") {
+        const data = fs.readFileSync("recipes.json");
+        let json = JSON.parse(data);
+        let body = "";
+        let response = {};
+        req.on("data", (chunk) => {
+          body += chunk;
+          response = JSON.parse(body);
+          console.log("resp", response);
+          json.recipes.forEach((recipe, index) => {
+            if (recipe.id === response.id) {
+              json.recipes[index] = response;
+            }
+          });
+          // json.recipes.push(response);
+          fs.writeFileSync("recipes.json", JSON.stringify(json));
+        });
+      }
+
       req.on("end", () => {
         recipes = fs.readFileSync("recipes.json");
         res.end(recipes);

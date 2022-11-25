@@ -102,12 +102,12 @@
     },
     {
       "id": "11",
-      "title": "Рецептик новый",
+      "title": "Рецептик новый id 11",
       "description": "Рецептик такой ващееее",
-      "macros": "100 ккал",
+      "macros": "100 ккал + 1",
+      "text": "УУУУУУ new new",
       "categories": ["завтрак", "выпечка"],
-      "ingredients": ["творог", "авокадо", "говядина"],
-      "text": "УУУУУУ ууууууууууДДДДДДДрррр"
+      "ingredients": ["творог", "авокадо", "говядина"]
     },
     {
       "title": "sdhvls",
@@ -137,13 +137,13 @@
       "id": "14"
     },
     {
-      "title": "xxx",
-      "description": "cjlsdlc",
+      "id": "15",
+      "title": "меняю рецепт ",
+      "description": "частично, это айди 15",
       "macros": "dcgksug",
-      "categories": ["белок"],
-      "ingredients": ["молоко", "говядина"],
       "text": "ljsghdlcgihls",
-      "id": "15"
+      "categories": ["обед"],
+      "ingredients": ["молоко", "говядина", "курица", "творог"]
     }
   ]
 }
