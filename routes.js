@@ -41,8 +41,10 @@ const recipesListener = function (req, res) {
 
           response.id = idIncrement + "";
           console.log("resp", response);
+          response.images = ["/images/no_foto.png"];
 
           json.recipes.push(response);
+           console.log("resp2", response);
           fs.writeFileSync("recipes.json", JSON.stringify(json));
         });
       }
