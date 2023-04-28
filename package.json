@@ -17,6 +17,8 @@
   },
   "homepage": "https://github.com/lanalangsupergirl/first-server#readme",
   "dependencies": {
+    "blueimp-md5": "^2.19.0",
     "sqlite3": "^5.1.4"
-  }
+  },
+  "type":"module"
 }
