@@ -46,7 +46,7 @@ const recipesListener = async function (req, res) {
           console.log("recipe", recipe);
 
           db.run(
-            "INSERT INTO recipes(title, desctiption, macros, text) VALUES (?, ?, ?, ?)",
+            "INSERT INTO recipes(title, description, macros, text) VALUES (?, ?, ?, ?)",
             [recipe.title, recipe.description, recipe.macros, recipe.text],
             (err) => {
               if (err) {
@@ -69,7 +69,7 @@ const recipesListener = async function (req, res) {
             console.log("id", id);
             db.run(
               "INSERT INTO images(recipe_id, path) VALUES(?, ?)",
-              [id, recipe.path],
+              [id, ''],
               (err) => {
                 if (err) {
                   process.stderr.write(err);
@@ -164,9 +164,6 @@ const recipesListener = async function (req, res) {
         });
       }
 
-      req.on("end", () => {
-        JSON.stringify(recipes);
-      });
 
       res.end(JSON.stringify(recipes));
       break;
