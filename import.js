@@ -1,12 +1,18 @@
-const fs = require("fs");
-const sqlite3 = require("sqlite3").verbose();
-let dataRecipes = require("./recipes.json");
-const crypto = require("crypto");
+// const fs = require("fs");
+// const sqlite3 = require("sqlite3").verbose();
+// let dataRecipes = require("./recipes.json");
+// const crypto = require("crypto");
 
 import * as fs from "fs";
-import { sqlite3 } from "sqlite3";
-import { crypto } from "crypto";
-// import { dataRecipes } from "./recipes.json";
+import sqlite3 from "sqlite3";
+import crypto from "crypto";
+import dataRecipes from "./recipes.json" assert { type: "json" };
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 let db = new sqlite3.Database("./recipes.db", sqlite3.OPEN_READWRITE, (err) => {
   if (err) {

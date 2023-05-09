@@ -42,8 +42,8 @@ const recipesListener = async function (req, res) {
 
         let recipe = JSON.parse(Buffer.concat(buffers).toString());
 
-        let result = new Promise((resolve, reject) => {
-          console.log("recipe", recipe);
+        new Promise((resolve, reject) => {
+          // console.log("recipe", recipe);
 
           db.run(
             "INSERT INTO recipes(title, description, macros, text) VALUES (?, ?, ?, ?)",
@@ -57,7 +57,7 @@ const recipesListener = async function (req, res) {
           );
 
           db.get("SELECT last_insert_rowid() as last_id", [], (err, result) => {
-            console.log("result", result);
+            // console.log("result", result);
             if (err) {
               reject(err);
               return;
@@ -66,10 +66,10 @@ const recipesListener = async function (req, res) {
           });
         })
           .then((id) => {
-            console.log("id", id);
+            // console.log("id", id);
             db.run(
               "INSERT INTO images(recipe_id, path) VALUES(?, ?)",
-              [id, ''],
+              [id, "/images/no_foto.png"],
               (err) => {
                 if (err) {
                   process.stderr.write(err);
@@ -77,6 +77,58 @@ const recipesListener = async function (req, res) {
                 }
               }
             );
+
+            recipe.categories.forEach((category) => {
+              db.get(
+                "SELECT rowid, * FROM categories WHERE name = ?",
+                [category],
+                (err, result) => {
+                  if (err) {
+                    process.stderr.write(err);
+                    return;
+                  }
+
+                  db.run(
+                    "INSERT INTO recipeCat(recipe_id, category_id) VALUES (?, ?)",
+                    [id, result.rowid],
+                    (err) => {
+                      if (err) {
+                        process.stderr.write(err);
+                        return;
+                      }
+                    }
+                  );
+                }
+              );
+            });
+
+            recipe.ingredients.forEach((ingredient) => {
+              db.get(
+                "SELECT rowid, * FROM ingredients WHERE name = ?",
+                [ingredient],
+                (err, result) => {
+                  if (err) {
+                    process.stderr.write(err);
+                    return;
+                  }
+
+                  db.run(
+                    "INSERT INTO recipeIng(recipe_id, ingredient_id) VALUES (?, ?)",
+                    [id, result.rowid],
+                    (err) => {
+                      if (err) {
+                        process.stderr.write(err);
+                        return;
+                      }
+                    }
+                  );
+                }
+              );
+            });
+          })
+          .then(() => {
+            recipe.path = "/images/no_foto.png";
+            recipes.push(recipe);
           })
           .catch((err) => {
             if (err) {
@@ -84,86 +136,78 @@ const recipesListener = async function (req, res) {
               return;
             }
           });
-
-        //    let body = "";
-        //    let recipe = {};
-        //   req.on("data", (chunk) => {
-        //     body += chunk;
-        //     recipe = JSON.parse(body);
-        //     recipe.path = ["/images/no_foto.png"];
-
-        //     let result = new Promise((resolve, reject) => {
-        //       console.log("recipe", recipe);
-
-        //       db.run(
-        //         "INSERT INTO recipes(title, desctiption, macros, text) VALUES (?, ?, ?, ?)",
-        //         [recipe.title, recipe.description, recipe.macros, recipe.text],
-        //         (err) => {
-        //           if (err) {
-        //              process.stderr.write(err);
-        //              return;
-        //           }
-
-        //         }
-        //       );
-
-        //       db.get(
-        //         "SELECT last_insert_rowid() as last_id",
-        //         [],
-        //         (err, result) => {
-        //           console.log("result", result);
-        //           if (err) {
-        //             reject(err);
-        //             return;
-        //           }
-        //           resolve(result.last_id);
-        //         }
-        //       );
-        //     })
-        //       .then((id) => {
-        //         db.run(
-        //           "INSERT INTO images(recipe_id, path) VALUES(?, ?)",
-        //           [id, recipe.path],
-        //           (err) => {
-        //             if (err) {
-        //                process.stderr.write(err);
-        //                return;
-        //             }
-        //           }
-        //         );
-
-        //         //  recipes.categories.forEach((category) => {
-
-        //         //  })
-        //       })
-        //       .catch((err) => {
-        //         if (err) {
-        //           process.stderr.write(err);
-        //           return;
-        //         }
-        //       });
-        //   });
-        // });
       }
 
       if (req.method === "PATCH") {
-        let body = "";
-        let response = {};
+        const buffers = [];
 
-        req.on("data", (chunk) => {
-          body += chunk;
-          response = JSON.parse(body);
-          console.log("resp", response);
-          // json.recipes.forEach((recipe, index) => {
-          //   if (recipe.id === response.id) {
-          //     json.recipes[index] = response;
-          //   }
-          // });
+        for await (const chunk of req) {
+          buffers.push(chunk);
+        }
 
-          // json.recipes.push(response);
+        let editedRecipe = JSON.parse(Buffer.concat(buffers).toString());
+
+        let originalRecipe = recipes.filter((recipe) => {
+          return recipe.id === editedRecipe.id;
+        });
+
+        console.log("edited", editedRecipe);
+        console.log("original", originalRecipe);
+
+        let updatedFieldsRecipe = {};
+        // let updatedFieldsCategories = {};
+        // let updatedFieldsIngredients = {};
+
+        originalRecipe.forEach((recipe) => {
+          if (recipe.title !== editedRecipe.title) {
+            updatedFieldsRecipe["title"] = editedRecipe.title;
+          }
+
+          if (recipe.description !== editedRecipe.description) {
+            updatedFieldsRecipe["description"] = editedRecipe.description;
+          }
+
+          if (recipe.macros !== editedRecipe.macros) {
+            updatedFieldsRecipe["macros"] = editedRecipe.macros;
+          }
+
+          if (recipe.text !== editedRecipe.text) {
+            updatedFieldsRecipe["text"] = editedRecipe.text;
+          }
+        });
+
+        console.log("fields", updatedFieldsRecipe);
+
+        let query = "UPDATE recipes SET";
+        let values = [];
+
+        if (Object.keys(updatedFieldsRecipe).length) {
+          for (let column in updatedFieldsRecipe) {
+            query += " " + column + "=" + "?" + " ";
+            values.push(updatedFieldsRecipe[column]);
+          }
+
+          query += " WHERE id = " + editedRecipe.id;
+        }
+
+        console.log("query", query);
+        console.log("values", values);
+
+        new Promise((resolve, reject) => {
+
+          db.run(query, values, (err) => {
+            if (err) {
+              reject(err)
+              return;
+            }
+          });
+        }).catch((err) => {
+          if (err) {
+            process.stderr.write(err);
+            return;
+          }
         });
       }
-
 
       res.end(JSON.stringify(recipes));
       break;
