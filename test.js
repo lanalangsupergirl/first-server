@@ -43,8 +43,6 @@ const recipesListener = async function (req, res) {
         let recipe = JSON.parse(Buffer.concat(buffers).toString());
 
         new Promise((resolve, reject) => {
-          // console.log("recipe", recipe);
-
           db.run(
             "INSERT INTO recipes(title, description, macros, text) VALUES (?, ?, ?, ?)",
             [recipe.title, recipe.description, recipe.macros, recipe.text],
@@ -57,7 +55,6 @@ const recipesListener = async function (req, res) {
           );
 
           db.get("SELECT last_insert_rowid() as last_id", [], (err, result) => {
-            // console.log("result", result);
             if (err) {
               reject(err);
               return;
@@ -66,7 +63,6 @@ const recipesListener = async function (req, res) {
           });
         })
           .then((id) => {
-            // console.log("id", id);
             db.run(
               "INSERT INTO images(recipe_id, path) VALUES(?, ?)",
               [id, "/images/no_foto.png"],
@@ -103,6 +99,7 @@ const recipesListener = async function (req, res) {
             });
 
             recipe.ingredients.forEach((ingredient) => {
+              console.log(ingredient);
               db.get(
                 "SELECT rowid, * FROM ingredients WHERE name = ?",
                 [ingredient],
@@ -126,9 +123,8 @@ const recipesListener = async function (req, res) {
               );
             });
           })
-          .then(() => {
-            recipe.path = "/images/no_foto.png";
-            recipes.push(recipe);
+          .then(async () => {
+            recipes = await getRecipes();
           })
           .catch((err) => {
             if (err) {
@@ -147,69 +143,172 @@ const recipesListener = async function (req, res) {
 
         let editedRecipe = JSON.parse(Buffer.concat(buffers).toString());
 
-        let originalRecipe = recipes.filter((recipe) => {
+        let originalRecipe = await recipes.filter((recipe) => {
           return recipe.id === editedRecipe.id;
         });
 
-        console.log("edited", editedRecipe);
-        console.log("original", originalRecipe);
-
-        let updatedFieldsRecipe = {};
-        // let updatedFieldsCategories = {};
-        // let updatedFieldsIngredients = {};
-
-        originalRecipe.forEach((recipe) => {
-          if (recipe.title !== editedRecipe.title) {
-            updatedFieldsRecipe["title"] = editedRecipe.title;
-          }
-
-          if (recipe.description !== editedRecipe.description) {
-            updatedFieldsRecipe["description"] = editedRecipe.description;
-          }
-
-          if (recipe.macros !== editedRecipe.macros) {
-            updatedFieldsRecipe["macros"] = editedRecipe.macros;
-          }
-
-          if (recipe.text !== editedRecipe.text) {
-            updatedFieldsRecipe["text"] = editedRecipe.text;
-          }
-        });
-
-        console.log("fields", updatedFieldsRecipe);
-
-        let query = "UPDATE recipes SET";
-        let values = [];
-
-        if (Object.keys(updatedFieldsRecipe).length) {
-          for (let column in updatedFieldsRecipe) {
-            query += " " + column + "=" + "?" + " ";
-            values.push(updatedFieldsRecipe[column]);
-          }
-
-          query += " WHERE id = " + editedRecipe.id;
-        }
-
-        console.log("query", query);
-        console.log("values", values);
-
         new Promise((resolve, reject) => {
+          let updatedFieldsRecipe = {};
 
-          db.run(query, values, (err) => {
+          originalRecipe.forEach((recipe) => {
+            if (recipe.title !== editedRecipe.title) {
+              updatedFieldsRecipe["title"] = editedRecipe.title;
+            }
+
+            if (recipe.description !== editedRecipe.description) {
+              updatedFieldsRecipe["description"] = editedRecipe.description;
+            }
+
+            if (recipe.macros !== editedRecipe.macros) {
+              updatedFieldsRecipe["macros"] = editedRecipe.macros;
+            }
+
+            if (recipe.text !== editedRecipe.text) {
+              updatedFieldsRecipe["text"] = editedRecipe.text;
+            }
+          });
+
+          let ingredientsArr = [];
+          editedRecipe.ingredients.forEach((ing) => {
+            ingredientsArr.push(ing);
+          });
+
+          let categoriesArr = [];
+          editedRecipe.categories.forEach((ing) => {
+            categoriesArr.push(ing);
+          });
+
+          let query = "";
+          let values = [];
+
+          console.log("updatedFieldsRecipe", updatedFieldsRecipe);
+
+          if (Object.keys(updatedFieldsRecipe).length) {
+            query = "UPDATE recipes SET";
+
+            for (let column in updatedFieldsRecipe) {
+              if (updatedFieldsRecipe[column] !== "") {
+                query += " " + column + "=" + "?" + ",";
+
+                values.push(updatedFieldsRecipe[column]);
+
+                query = query.substring(0, query.length - 1);
+              }
+            }
+
+            query += " WHERE id = " + editedRecipe.id;
+          } else {
+            reject();
+          }
+
+          console.log("query", query);
+
+          let data = {
+            query: query,
+            values: values,
+            ingredients: ingredientsArr,
+            categories: categoriesArr,
+            id: editedRecipe.id,
+          };
+
+          if (
+            query !== "" &&
+            values !== [] &&
+            ingredientsArr !== [] &&
+            categoriesArr !== [] // некрасиво как-то
+          ) {
+            resolve(data);
+          }
+        })
+          .then((data) => {
+            console.log("data", data);
+            db.run(
+              "DELETE FROM recipeCat WHERE recipe_id = ?",
+              [data.id],
+              (err) => {
+                if (err) {
+                  process.stderr.write(err);
+                  return;
+                }
+              }
+            );
+
+            db.run(
+              "DELETE FROM recipeIng WHERE recipe_id = ?",
+              [data.id],
+              (err) => {
+                if (err) {
+                  process.stderr.write(err);
+                  return;
+                }
+              }
+            );
+
+            db.run(data.query, data.values, (err) => {
+              if (err) {
+                process.stderr.write(err);
+                return;
+              }
+            });
+
+            data.categories.forEach((category) => {
+              db.get(
+                "SELECT rowid, * FROM categories WHERE name = ?",
+                [category],
+                (err, result) => {
+                  if (err) {
+                    process.stderr.write(err);
+                    return;
+                  }
+
+                  db.run(
+                    "INSERT INTO recipeCat(recipe_id, category_id) VALUES (?, ?)",
+                    [data.id, result.rowid],
+                    (err) => {
+                      if (err) {
+                        process.stderr.write(err);
+                        return;
+                      }
+                    }
+                  );
+                }
+              );
+            });
+
+            data.ingredients.forEach((ingredient) => {
+              db.get(
+                "SELECT rowid, * FROM ingredients WHERE name = ?",
+                [ingredient],
+                (err, result) => {
+                  if (err) {
+                    process.stderr.write(err);
+                    return;
+                  }
+
+                  db.run(
+                    "INSERT INTO recipeIng(recipe_id, ingredient_id) VALUES (?, ?)",
+                    [data.id, result.rowid],
+                    (err) => {
+                      if (err) {
+                        process.stderr.write(err);
+                        return;
+                      }
+                    }
+                  );
+                }
+              );
+            });
+          })
+          .catch((err) => {
             if (err) {
-              reject(err)
+              process.stderr.write(err);
               return;
             }
           });
-        }).catch((err) => {
-          if (err) {
-            process.stderr.write(err);
-            return;
-          }
-        });
       }
 
-      res.end(JSON.stringify(recipes));
+      recipes = await getRecipes();
+      res.end(JSON.stringify(await recipes));
       break;
 
     case `/recipe?id=${id}`:
