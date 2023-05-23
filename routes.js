@@ -3,9 +3,6 @@ const url = require("url");
 const fs = require("fs");
 
 let dataRecipes = require("./recipes.json");
-let getRecipes = require("./get_recipes.js");
-
-//console.log(getRecipes)
 
 const host = "localhost";
 const port = 8080;

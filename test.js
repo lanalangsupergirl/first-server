@@ -3,6 +3,7 @@ import url from "node:url";
 import { fileURLToPath } from "url";
 import * as fs from "fs";
 import { getRecipes } from "./get_recipes.js";
+import { addRecipe } from "./add_recipe.js"
 import { dirname } from "path";
 import sqlite3 from "sqlite3";
 
@@ -10,7 +11,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const host = "localhost";
 const port = 8080;
-let recipes = await getRecipes();
 
 let db = new sqlite3.Database("./recipes.db", sqlite3.OPEN_READWRITE, (err) => {
   if (err) {
@@ -42,96 +42,7 @@ const recipesListener = async function (req, res) {
 
         let recipe = JSON.parse(Buffer.concat(buffers).toString());
 
-        new Promise((resolve, reject) => {
-          db.run(
-            "INSERT INTO recipes(title, description, macros, text) VALUES (?, ?, ?, ?)",
-            [recipe.title, recipe.description, recipe.macros, recipe.text],
-            (err) => {
-              if (err) {
-                process.stderr.write(err);
-                return;
-              }
-            }
-          );
-
-          db.get("SELECT last_insert_rowid() as last_id", [], (err, result) => {
-            if (err) {
-              reject(err);
-              return;
-            }
-            resolve(result.last_id);
-          });
-        })
-          .then((id) => {
-            db.run(
-              "INSERT INTO images(recipe_id, path) VALUES(?, ?)",
-              [id, "/images/no_foto.png"],
-              (err) => {
-                if (err) {
-                  process.stderr.write(err);
-                  return;
-                }
-              }
-            );
-
-            recipe.categories.forEach((category) => {
-              db.get(
-                "SELECT rowid, * FROM categories WHERE name = ?",
-                [category],
-                (err, result) => {
-                  if (err) {
-                    process.stderr.write(err);
-                    return;
-                  }
-
-                  db.run(
-                    "INSERT INTO recipeCat(recipe_id, category_id) VALUES (?, ?)",
-                    [id, result.rowid],
-                    (err) => {
-                      if (err) {
-                        process.stderr.write(err);
-                        return;
-                      }
-                    }
-                  );
-                }
-              );
-            });
-
-            recipe.ingredients.forEach((ingredient) => {
-              console.log(ingredient);
-              db.get(
-                "SELECT rowid, * FROM ingredients WHERE name = ?",
-                [ingredient],
-                (err, result) => {
-                  if (err) {
-                    process.stderr.write(err);
-                    return;
-                  }
-
-                  db.run(
-                    "INSERT INTO recipeIng(recipe_id, ingredient_id) VALUES (?, ?)",
-                    [id, result.rowid],
-                    (err) => {
-                      if (err) {
-                        process.stderr.write(err);
-                        return;
-                      }
-                    }
-                  );
-                }
-              );
-            });
-          })
-          .then(async () => {
-            recipes = await getRecipes();
-          })
-          .catch((err) => {
-            if (err) {
-              process.stderr.write(err);
-              return;
-            }
-          });
+        addRecipe(await recipe);
       }
 
       if (req.method === "PATCH") {
@@ -149,6 +60,8 @@ const recipesListener = async function (req, res) {
 
         new Promise((resolve, reject) => {
           let updatedFieldsRecipe = {};
+          let ingredientsArr = [];
+          let categoriesArr = [];
 
           originalRecipe.forEach((recipe) => {
             if (recipe.title !== editedRecipe.title) {
@@ -166,17 +79,14 @@ const recipesListener = async function (req, res) {
             if (recipe.text !== editedRecipe.text) {
               updatedFieldsRecipe["text"] = editedRecipe.text;
             }
+
+            ingredientsArr = recipe.ingredients;
+
+            categoriesArr = recipe.categories;
+
           });
 
-          let ingredientsArr = [];
-          editedRecipe.ingredients.forEach((ing) => {
-            ingredientsArr.push(ing);
-          });
-
-          let categoriesArr = [];
-          editedRecipe.categories.forEach((ing) => {
-            categoriesArr.push(ing);
-          });
+          console.log(ingredientsArr);
 
           let query = "";
           let values = [];
@@ -307,12 +217,13 @@ const recipesListener = async function (req, res) {
           });
       }
 
-      recipes = await getRecipes();
-      res.end(JSON.stringify(await recipes));
+      let recipes = await getRecipes();
+      res.end(JSON.stringify(recipes));
       break;
 
     case `/recipe?id=${id}`:
-      let recipe = recipes?.find((recipe) => recipe.id == id);
+      recipes = await getRecipes();
+      let recipe = recipes.find((recipe) => recipe.id == id);
 
       res.end(JSON.stringify(recipe));
       break;
