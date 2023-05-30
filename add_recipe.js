@@ -1,25 +1,16 @@
 import sqlite3 from "sqlite3";
+import { openDb } from "./utils.js";
+
+let db = openDb(sqlite3, "./recipes.db");
 
 export async function addRecipe(recipe) {
   return new Promise((resolve, reject) => {
-
-    let db = new sqlite3.Database(
-      "./recipes.db",
-      sqlite3.OPEN_READWRITE,
-      (err) => {
-        if (err) {
-          process.stderr.write(err);
-          return;
-        }
-      }
-    );
-
     db.run(
       "INSERT INTO recipes(title, description, macros, text) VALUES (?, ?, ?, ?)",
       [recipe.title, recipe.description, recipe.macros, recipe.text],
       (err) => {
         if (err) {
-          process.stderr.write(err);
+          console.log(err);
           return;
         }
       }
@@ -34,10 +25,6 @@ export async function addRecipe(recipe) {
     });
   })
     .then((id) => {
-      console.log("id", id);
-      console.log("recipe", recipe);
-      //тут все уже не работает, а раньше то работало
-
       db.run(
         "INSERT INTO images(recipe_id, path) VALUES(?, ?)",
         [id, "/images/no_foto.png"],

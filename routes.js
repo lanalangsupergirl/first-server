@@ -1,98 +1,77 @@
-const http = require("http");
-const url = require("url");
-const fs = require("fs");
+import * as http from "http";
+import url from "node:url";
+import { fileURLToPath } from "url";
+import * as fs from "fs";
+import { getRecipes } from "./get_recipes.js";
+import { addRecipe } from "./add_recipe.js";
+import { editRecipe} from "./edit_recipe.js";
+import { openDb } from "./utils.js";
+import { dirname } from "path";
+import sqlite3 from "sqlite3";
 
-let dataRecipes = require("./recipes.json");
-
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 const host = "localhost";
 const port = 8080;
-//const sqlite3 = require("sqlite3").verbose();
-let recipes = JSON.stringify(dataRecipes);
 
-const recipesListener = function (req, res) {
+let db = openDb(sqlite3, "./recipes.db");
+
+db.serialize();
+
+const recipesListener = async function (req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "*");
   res.setHeader("Access-Control-Allow-Headers", "*");
 
-  const parsedReq = url.parse(req.url, true).query;
+  let params = new URL(req.url, "http://localhost:8080/");
+  let id = params.searchParams.get("id");
 
-  let img = req.url.split("/").pop();
+  let path = req.url.split("/").pop();
 
   switch (req.url) {
     case "/recipes":
       if (req.method === "POST") {
-        const data = fs.readFileSync("recipes.json");
-        let json = JSON.parse(data);
+        const buffers = [];
 
-        console.log("data recieps length", json.recipes.length);
+        for await (const chunk of req) {
+          buffers.push(chunk);
+        }
 
-        let lastRecipeId = json.recipes
-          .map((recipe) => recipe.id)
-          .sort((a, b) => a - b)[json.recipes.length - 1];
+        let recipe = JSON.parse(Buffer.concat(buffers).toString());
 
-        console.log("last", lastRecipeId);
-
-        let idIncrement = parseInt(lastRecipeId) + 1;
-        console.log("increm", idIncrement);
-
-        let body = "";
-        let response = {};
-
-        req.on("data", (chunk) => {
-          body += chunk;
-          response = JSON.parse(body);
-
-          response.id = idIncrement + "";
-          console.log("resp", response);
-          response.path = ["/images/no_foto.png"];
-
-          json.recipes.push(response);
-          console.log("resp2", response);
-
-          fs.writeFileSync("recipes.json", JSON.stringify(json));
-        });
+        addRecipe(await recipe);
       }
 
       if (req.method === "PATCH") {
-        const data = fs.readFileSync("recipes.json");
-        let json = JSON.parse(data);
+        const buffers = [];
 
-        let body = "";
-        let response = {};
+        for await (const chunk of req) {
+          buffers.push(chunk);
+        }
 
-        req.on("data", (chunk) => {
-          body += chunk;
-          response = JSON.parse(body);
-          console.log("resp", response);
-          json.recipes.forEach((recipe, index) => {
-            if (recipe.id === response.id) {
-              json.recipes[index] = response;
-            }
-          });
+        let editedRecipe = JSON.parse(Buffer.concat(buffers).toString());
 
-          // json.recipes.push(response);
-          fs.writeFileSync("recipes.json", JSON.stringify(json));
+        let recipes = await getRecipes();
+
+        let originalRecipe = recipes.filter((recipe) => {
+          return recipe.id === editedRecipe.id;
         });
+
+        await editRecipe(originalRecipe, editedRecipe);
       }
 
-      req.on("end", () => {
-        recipes = fs.readFileSync("recipes.json");
-      });
-
-      res.end(recipes);
+      let recipes = await getRecipes();
+      res.end(JSON.stringify(recipes));
       break;
 
-    case `/recipe?id=${parsedReq.id}`:
-      let recipe = dataRecipes.recipes.find(
-        (recipe) => recipe.id === parsedReq.id
-      );
-
-      console.log("recipe", recipe);
+    case `/recipe?id=${id}`:
+      recipes = await getRecipes();
+      let recipe = recipes.find((recipe) => recipe.id == id);
 
       res.end(JSON.stringify(recipe));
       break;
 
-    case `/images/${img}`:
+    case `/images/${path}`:
       const data = fs.readFileSync(__dirname + req.url);
 
       res.setHeader("Content-Type", "image/png");

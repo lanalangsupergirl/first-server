@@ -261,7 +261,7 @@ const finalize = Promise.all([categories, ingredients, recipes]).then(
           [id, ingredients[ingredient]],
           (err) => {
             if (err) {
-              process.stderr.write(err);
+              console.log(err);
               return;
             }
           }

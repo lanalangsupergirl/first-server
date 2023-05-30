@@ -1,18 +1,10 @@
 import sqlite3 from "sqlite3";
+import { openDb } from "./utils.js";
 
 export function getRecipes() {
   return new Promise((resolve, reject) => {
 
-    let db = new sqlite3.Database(
-      "./recipes.db",
-      sqlite3.OPEN_READWRITE,
-      (err) => {
-        if (err) {
-          process.stderr.write(err);
-          return;
-        }
-      }
-    );
+    let db = openDb(sqlite3, "./recipes.db");
 
     let recipes = new Promise((resolve, reject) => {
       db.all("SELECT * FROM recipes", [], (err, rows) => {
@@ -62,7 +54,7 @@ export function getRecipes() {
       });
     });
 
-    const dataRecipes1 = Promise.all([recipes, categories, ingredients, images])
+    Promise.all([recipes, categories, ingredients, images])
       .then((values) => {
         const recipes = values[0];
         const categories = values[1];
@@ -84,7 +76,6 @@ export function getRecipes() {
         if (Object.keys(images).length === 0) {
           throw new Error();
         }
-
 
         recipes.forEach((recipe) => {
           for (let image of images) {
@@ -115,12 +106,10 @@ export function getRecipes() {
         });
 
         resolve(recipes);
-        reject((err) => {
-          err;
-        });
+        reject(new Error);
       })
       .catch((err) => {
-        process.stderr.write(err);
+        console.log(err);
       });
   });
 }
