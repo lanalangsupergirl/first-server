@@ -1,19 +1,11 @@
-import sqlite3 from "sqlite3";
-import { openDb } from "./utils.js";
-
-let db = openDb(sqlite3, "./recipes.db");
+import { db, errorHandler } from "./utils.js";
 
 export async function addRecipe(recipe) {
   return new Promise((resolve, reject) => {
     db.run(
       "INSERT INTO recipes(title, description, macros, text) VALUES (?, ?, ?, ?)",
       [recipe.title, recipe.description, recipe.macros, recipe.text],
-      (err) => {
-        if (err) {
-          console.log(err);
-          return;
-        }
-      }
+      errorHandler
     );
 
     db.get("SELECT last_insert_rowid() as last_id", [], (err, result) => {
@@ -28,12 +20,7 @@ export async function addRecipe(recipe) {
       db.run(
         "INSERT INTO images(recipe_id, path) VALUES(?, ?)",
         [id, "/images/no_foto.png"],
-        (err) => {
-          if (err) {
-            process.stderr.write(err);
-            return;
-          }
-        }
+        errorHandler
       );
 
       recipe.categories.forEach((category) => {
@@ -42,19 +29,14 @@ export async function addRecipe(recipe) {
           [category],
           (err, result) => {
             if (err) {
-              process.stderr.write(err);
+              console.log(err);
               return;
             }
 
             db.run(
               "INSERT INTO recipeCat(recipe_id, category_id) VALUES (?, ?)",
               [id, result.rowid],
-              (err) => {
-                if (err) {
-                  process.stderr.write(err);
-                  return;
-                }
-              }
+              errorHandler
             );
           }
         );
@@ -67,28 +49,18 @@ export async function addRecipe(recipe) {
           [ingredient],
           (err, result) => {
             if (err) {
-              process.stderr.write(err);
+              console.log(err);
               return;
             }
 
             db.run(
               "INSERT INTO recipeIng(recipe_id, ingredient_id) VALUES (?, ?)",
               [id, result.rowid],
-              (err) => {
-                if (err) {
-                  process.stderr.write(err);
-                  return;
-                }
-              }
+              errorHandler
             );
           }
         );
       });
     })
-    .catch((err) => {
-      if (err) {
-        process.stderr.write(err);
-        return;
-      }
-    });
+    .catch(errorHandler);
 }

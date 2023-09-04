@@ -1,10 +1,7 @@
-import sqlite3 from "sqlite3";
-import { openDb } from "./utils.js";
+import { db } from "./utils.js";
 
 export function getRecipes() {
-  return new Promise((resolve, reject) => {
-
-    let db = openDb(sqlite3, "./recipes.db");
+  return new Promise((resolve) => {
 
     let recipes = new Promise((resolve, reject) => {
       db.all("SELECT * FROM recipes", [], (err, rows) => {
@@ -106,7 +103,7 @@ export function getRecipes() {
         });
 
         resolve(recipes);
-        reject(new Error);
+
       })
       .catch((err) => {
         console.log(err);

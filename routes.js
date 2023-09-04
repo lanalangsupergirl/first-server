@@ -4,7 +4,8 @@ import { fileURLToPath } from "url";
 import * as fs from "fs";
 import { getRecipes } from "./get_recipes.js";
 import { addRecipe } from "./add_recipe.js";
-import { editRecipe} from "./edit_recipe.js";
+import { editRecipe } from "./edit_recipe.js";
+import { addUser } from "./add_user.js";
 import { openDb } from "./utils.js";
 import { dirname } from "path";
 import sqlite3 from "sqlite3";
@@ -39,7 +40,7 @@ const recipesListener = async function (req, res) {
 
         let recipe = JSON.parse(Buffer.concat(buffers).toString());
 
-        addRecipe(await recipe);
+        await addRecipe(recipe);
       }
 
       if (req.method === "PATCH") {
@@ -55,7 +56,9 @@ const recipesListener = async function (req, res) {
 
         let originalRecipe = recipes.filter((recipe) => {
           return recipe.id === editedRecipe.id;
-        });
+        })[0];
+
+        console.log("original", originalRecipe);
 
         await editRecipe(originalRecipe, editedRecipe);
       }
@@ -76,6 +79,29 @@ const recipesListener = async function (req, res) {
 
       res.setHeader("Content-Type", "image/png");
       res.end(data);
+      break;
+
+    case "/auth":
+      let isAvailable = '';
+
+      if (req.method === "POST") {
+        const buffers = [];
+
+        for await (const chunk of req) {
+          buffers.push(chunk);
+        }
+
+        let user =  JSON.parse(Buffer.concat(buffers).toString());
+        console.log('user', user);
+
+        isAvailable = await addUser(user);
+      }
+
+      console.log("isAvail", isAvailable);
+
+      res.setHeader("Content-Type", "application/json");
+      res.end(isAvailable);
+
       break;
 
     default:
