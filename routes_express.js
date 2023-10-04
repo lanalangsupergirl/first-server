@@ -1,10 +1,14 @@
 import express from "express";
 import cors from "cors";
+import session from "express-session";
+import RedisStore from "connect-redis";
+import { createClient } from "redis";
 import * as fs from "fs";
 import { getRecipes } from "./get_recipes.js";
 import { addRecipe } from "./add_recipe.js";
 import { editRecipe } from "./edit_recipe.js";
 import { addUser } from "./add_user.js";
+import { LogIn } from "./login.js";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -13,7 +17,33 @@ const port = 8080;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-app.use(cors());
+app.use(cors({ credentials: true }));
+app.set("trust proxy", 1);
+app.use(express.json()); //a built express middleware that convert request body to JSON.
+app.use(express.urlencoded({ extended: true })); //a body parser for html post form.
+
+let redisClient = createClient();
+redisClient.connect().catch(console.error);
+
+let redisStore = new RedisStore({
+  client: redisClient,
+  prefix: "app:",
+});
+
+app.use(
+  session({
+    store: redisStore,
+    secret: "sekret-bobra", //должен хрнаиться в переменной и быть скрыт
+    resave: false,
+    saveUninitialized: true,
+    cookie: {
+      secure: false,
+      httpOnly: true,
+      maxAge: 1000 * 60 * 60 * 24,
+      sameSite: "none",
+    },
+  })
+);
 
 app.route("/recipes")
   .get(async function (req, res) {
@@ -22,13 +52,7 @@ app.route("/recipes")
     res.send(JSON.stringify(recipes));
   })
   .post(async function (req, res) {
-    const buffers = [];
-
-    for await (const chunk of req) {
-      buffers.push(chunk);
-    }
-
-    let recipe = JSON.parse(Buffer.concat(buffers).toString());
+    let recipe = req.body;
 
     await addRecipe(recipe);
 
@@ -37,13 +61,7 @@ app.route("/recipes")
     res.send(JSON.stringify(recipes));
   })
   .patch(async function (req, res) {
-    const buffers = [];
-
-    for await (const chunk of req) {
-      buffers.push(chunk);
-    }
-
-    let editedRecipe = JSON.parse(Buffer.concat(buffers).toString());
+    let editedRecipe = req.body;
 
     let recipes = await getRecipes();
 
@@ -80,18 +98,35 @@ app.get("/recipe/id=:id", async function (req, res) {
 });
 
 app.post("/auth", async function (req, res) {
-  const buffers = [];
-
-  for await (const chunk of req) {
-    buffers.push(chunk);
-  }
-
-  let user = JSON.parse(Buffer.concat(buffers).toString());
+  let user = req.body;
 
   let isAvailable = await addUser(user);
 
   res.setHeader("Content-Type", "application/json");
   res.send(isAvailable);
+});
+
+app.post("/login", async function (req, res) {
+  let user = req.body;
+
+  let isLogIn = await LogIn(user);
+
+  req.session.key = req.sessionID;
+  req.session.save();
+
+  console.log("sess", req.session);
+
+  res.setHeader("Content-Type", "application/json");
+  res.send(isLogIn);
+});
+
+app.use((req, res, next) => {
+  if (!req.session.key) {
+    const err = new Error("err");
+    err.statusCode = 401;
+    next(err);
+  }
+  next();
 });
 
 app.use((req, res, next) => {
