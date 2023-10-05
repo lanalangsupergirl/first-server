@@ -17,7 +17,7 @@ const port = 8080;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-app.use(cors({ credentials: true }));
+app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
 app.set("trust proxy", 1);
 app.use(express.json()); //a built express middleware that convert request body to JSON.
 app.use(express.urlencoded({ extended: true })); //a body parser for html post form.
@@ -38,9 +38,8 @@ app.use(
     saveUninitialized: true,
     cookie: {
       secure: false,
-      httpOnly: true,
       maxAge: 1000 * 60 * 60 * 24,
-      sameSite: "none",
+      sameSite: 'lax'
     },
   })
 );

@@ -11,7 +11,7 @@
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "runtimeExecutable": "/home/stormherz/.nvm/versions/node/v18.14.0/bin/node",
+            "runtimeExecutable": "/home/stormherz/.nvm/versions/node/v19.4.0/bin/node",
             "program": "${file}"
         }
     ]
